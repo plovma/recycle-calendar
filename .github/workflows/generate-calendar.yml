@@ -1,0 +1,59 @@
+name: Generate calendar files
+
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: "0 6 * * *"
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: generate-calendar-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  generate:
+    outputs:
+      changed: ${{ steps.calendar_changes.outputs.changed }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out triggering branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.ref_name }}
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 26
+
+      - name: Generate calendar files
+        run: node generate-calendar.js
+
+      - name: Check for calendar data changes
+        id: calendar_changes
+        shell: bash
+        run: |
+          if git diff --quiet -- public/calendar.html; then
+            echo "No calendar data changes."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add public/calendar.ics public/calendar.html
+          git commit -m "Update generated calendar"
+          git push origin "HEAD:${GITHUB_REF_NAME}"
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: generate
+    if: needs.generate.outputs.changed == 'true' && github.ref_name == 'main'
+    uses: ./.github/workflows/deploy-pages-reusable.yml
+    with:
+      ref: main
+    secrets: inherit

@@ -1,0 +1,22 @@
+# Simple workflow for deploying static content to GitHub Pages
+name: Deploy static content from 'public' folder to Pages
+
+on:
+  # Runs on pushes targeting the default branch
+  push:
+    branches: ["main"]
+
+  # Allows you to run this workflow manually from the Actions tab
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+jobs:
+  deploy:
+    uses: ./.github/workflows/deploy-pages-reusable.yml
+    with:
+      ref: ${{ github.ref_name }}
+    secrets: inherit
